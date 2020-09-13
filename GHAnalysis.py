@@ -2,74 +2,99 @@ import json
 import os
 import argparse
 class DataProcessing:
-    def __init__(self,Firsttime: bool , Address: str = None ):
-        if(Firsttime):
-            self.Pretreatment(Address)
-        else:
-            self.LoadData()
+    def __init__(self,FirstTime: bool , Address: str = None ):
+        if(FirstTime):#第一次执行初始化
+            if(self.pretreatment(Address)==False):
+                raise RuntimeError('error: Files not Found')
+            print("初始化完成")
+        else:#读取预制文件
+            if(self.loadData() == False):
+                raise RuntimeError('error: please -i before using')
 
 
-    def Pretreatment(self,Address: str):
+    def pretreatment(self,Address: str) -> bool:
         self.__User = {}
         self.__Repo = {}
         self.__UserAndRepo = {}
-        for root, dic, files in os.walk(Address):
+        findFile=False
+        for root, dic, files in os.walk(Address): #获取文件夹内所有文件
             for file in files:
-                if file[-5:] == '.json':
-
+                if file[-5:] == '.json': #筛选后缀为.json的文件
+                    findFile=True
                     json_path = file
                     filedir = open(Address+'\\'+json_path,
                              'r', encoding='utf-8')
                     line = filedir.readline()
-                    while line:
+                    while line:  #对单个文件逐行读取
                         line = filedir.readline()
                         if line.strip() == '':  # 如果读到的是空行
                             continue  # 跳过该行
                         jsondata=json.loads(line)
-                        if not self.__User.get(jsondata['actor']['login'], 0):
-                            self.__User.update({jsondata['actor']['login']: {}})
-                            self.__UserAndRepo.update({jsondata['actor']['login']: {}})
-                        self.__User[jsondata['actor']['login']][jsondata['type']
-                        ] = self.__User[jsondata['actor']['login']].get(jsondata['type'], 0) + 1
-                        if not self.__Repo.get(jsondata['repo']['name'], 0):
-                            self.__Repo.update({jsondata['repo']['name']: {}})
-                        self.__Repo[jsondata['repo']['name']][jsondata['type']
-                        ] = self.__Repo[jsondata['repo']['name']].get(jsondata['type'], 0) + 1
-                        if not self.__UserAndRepo[jsondata['actor']['login']].get(jsondata['repo']['name'], 0):
-                            self.__UserAndRepo[jsondata['actor']['login']].update({jsondata['repo']['name']: {}})
-                        self.__UserAndRepo[jsondata['actor']['login']][jsondata['repo']['name']][jsondata['type']
-                        ] = self.__UserAndRepo[jsondata['actor']['login']][jsondata['repo']['name']].get(jsondata['type'], 0) + 1
+                        if not jsondata["type"] in ['PushEvent', 'IssueCommentEvent', 'IssuesEvent', 'PullRequestEvent']: #筛选事件
+                            continue # 跳过无关事件
+                        self.addEvent(jsondata)# 统计事件数量
+                    filedir.close()
+        self.saveToFile()  # 循环读取结束后保存到文件
+        return  findFile
+
+    def saveToFile(self):#保存到文件
         with open('user.json', 'w', encoding='utf-8') as f:
             json.dump(self.__User, f)
+            f.close()
         with open('repo.json', 'w', encoding='utf-8') as f:
             json.dump(self.__Repo, f)
+            f.close()
         with open('userandrepo.json', 'w', encoding='utf-8') as f:
             json.dump(self.__UserAndRepo, f)
+            f.close()
 
+    def addEvent(self,jsondata):#事件统计
+        if not self.__User.get(jsondata['actor']['login'], 0):
+            self.__User.update({jsondata['actor']['login']: {}})
+            self.__UserAndRepo.update({jsondata['actor']['login']: {}})
+        self.__User[jsondata['actor']['login']][jsondata['type']
+        ] = self.__User[jsondata['actor']['login']].get(jsondata['type'], 0) + 1
+        if not self.__Repo.get(jsondata['repo']['name'], 0):
+            self.__Repo.update({jsondata['repo']['name']: {}})
+        self.__Repo[jsondata['repo']['name']][jsondata['type']
+        ] = self.__Repo[jsondata['repo']['name']].get(jsondata['type'], 0) + 1
+        if not self.__UserAndRepo[jsondata['actor']['login']].get(jsondata['repo']['name'], 0):
+            self.__UserAndRepo[jsondata['actor']['login']].update({jsondata['repo']['name']: {}})
+        self.__UserAndRepo[jsondata['actor']['login']][jsondata['repo']['name']][jsondata['type']
+        ] = self.__UserAndRepo[jsondata['actor']['login']][jsondata['repo']['name']].get(jsondata['type'], 0) + 1
 
-    def LoadData(self):
+    def loadData(self) -> bool:
+        #读取预制文件
         if  not os.path.exists('user.json') and not os.path.exists(
                 'repo.json') and not os.path.exists('userandrepo.json'):
-            raise RuntimeError('error: init failed')
-        temp = open('user.json', 'r', encoding='utf-8').read()
-        self.__User = json.loads(temp)
-        temp = open('repo.json', 'r', encoding='utf-8').read()
-        self.__Repo = json.loads(temp)
-        temp = open('userandrepo.json', 'r', encoding='utf-8').read()
-        self.__UserAndRepo = json.loads(temp)
+            return False
+        with open('user.json', 'r', encoding='utf-8') as f:
+            temp = f.read()
+            self.__User = json.loads(temp)
+        with open('repo.json', 'r', encoding='utf-8') as f:
+            temp = f.read()
+            self.__Repo = json.loads(temp)
+        with open('userandrepo.json', 'r', encoding='utf-8') as f:
+            temp = f.read()
+            self.__UserAndRepo = json.loads(temp)
+        return True
+
     def getEventsByUsers(self, username: str, event: str) -> int:
+        #通过用户名获取事件数量
         if not self.__User.get(username,0):
             return 0
         else:
             return self.__User[username].get(event,0)
 
     def getEventsByRepos(self, reponame: str, event: str) -> int:
+        #通过仓库名获取事件数量
         if not self.__Repo.get(reponame,0):
             return 0
         else:
             return self.__Repo[reponame].get(event,0)
 
     def getEventsByUsersAndRepos(self, username: str, reponame: str, event: str) -> int:
+        #通过用户名和仓库名获取事件数量
         if not self.__User.get(username,0):
             return 0
         elif not self.__UserAndRepo[username].get(reponame,0):
@@ -80,17 +105,19 @@ class DataProcessing:
 
 class GHAnalysis:
     def __init__(self):
-        self.InitArgparse()
-        print(self.DataResult())
+        self.initArgparse()#初始化Arg
+        print(self.dataResult())#输出结果
 
-    def InitArgparse(self):
+    def initArgparse(self):
+        # 初始化Arg
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument('-i', '--init')
         self.parser.add_argument('-u', '--user')
         self.parser.add_argument('-r', '--repo')
         self.parser.add_argument('-e', '--event')
 
-    def DataResult(self):
+    def dataResult(self):
+        #根据参数执行
         if self.parser.parse_args().init:
             self.data = DataProcessing( True,self.parser.parse_args().init)
             return 0
@@ -114,10 +141,5 @@ class GHAnalysis:
                 raise RuntimeError('error: argument -e is required')
         return result
 
-
-
-
-
-
 if __name__ == '__main__':
-    GHAnalysis();
+    GHAnalysis()
