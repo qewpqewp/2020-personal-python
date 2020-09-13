@@ -6,7 +6,6 @@ class DataProcessing:
         if(FirstTime):#第一次执行初始化
             if(self.pretreatment(Address)==False):
                 raise RuntimeError('error: Files not Found')
-            print("初始化完成")
         else:#读取预制文件
             if(self.loadData() == False):
                 raise RuntimeError('error: please -i before using')
