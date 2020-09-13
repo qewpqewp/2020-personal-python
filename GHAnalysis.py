@@ -5,7 +5,7 @@ class DataProcessing:
     def __init__(self,FirstTime: bool , Address: str = None ):
         if(FirstTime):#第一次执行初始化
             if(self.pretreatment(Address)==False):
-                raise RuntimeError('error: Files not Found')
+                raise RuntimeError('error: Files not Found ')
         else:#读取预制文件
             if(self.loadData() == False):
                 raise RuntimeError('error: please -i before using')
