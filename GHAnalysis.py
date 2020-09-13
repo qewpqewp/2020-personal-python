@@ -8,7 +8,7 @@ class DataProcessing:
                 raise RuntimeError('error: Files not Found')
         else:#读取预制文件
             if(self.loadData() == False):
-                raise RuntimeError('error: please -i before using')
+                raise RuntimeError('error: please -i before using ')
 
 
     def pretreatment(self,Address: str) -> bool:
