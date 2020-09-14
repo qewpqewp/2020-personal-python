@@ -14,7 +14,7 @@ class DataProcessing:
     def pretreatment(self,Address: str) -> bool:
         self.__User = {}
         self.__Repo = {}
-        self.__UserAndRepo = {}
+        self.__UserAndRepo ={}
         findFile=False
         for root, dic, files in os.walk(Address): #获取文件夹内所有文件
             for file in files:
@@ -23,15 +23,19 @@ class DataProcessing:
                     json_path = file
                     filedir = open(Address+'\\'+json_path,
                              'r', encoding='utf-8')
-                    line = filedir.readline()
-                    while line:  #对单个文件逐行读取
+
+                    while True:  #对单个文件逐行读取
                         line = filedir.readline()
-                        if line.strip() == '':  # 如果读到的是空行
-                            continue  # 跳过该行
-                        jsondata=json.loads(line)
-                        if not jsondata["type"] in ['PushEvent', 'IssueCommentEvent', 'IssuesEvent', 'PullRequestEvent']: #筛选事件
-                            continue # 跳过无关事件
-                        self.addEvent(jsondata)# 统计事件数量
+                        if line :
+                            if line.strip() == '':  # 如果读到的是空行
+                                continue  # 跳过该行
+                            jsondata=json.loads(line)
+                            if not jsondata["type"] in ['PushEvent', 'IssueCommentEvent', 'IssuesEvent', 'PullRequestEvent']: #筛选事件
+                                continue # 跳过无关事件
+                            self.addEvent(jsondata)# 统计事件数量
+                        else:
+                            break
+
                     filedir.close()
         self.saveToFile()  # 循环读取结束后保存到文件
         return  findFile
@@ -48,19 +52,26 @@ class DataProcessing:
             f.close()
 
     def addEvent(self,jsondata):#事件统计
-        if not self.__User.get(jsondata['actor']['login'], 0):
-            self.__User.update({jsondata['actor']['login']: {}})
-            self.__UserAndRepo.update({jsondata['actor']['login']: {}})
-        self.__User[jsondata['actor']['login']][jsondata['type']
-        ] = self.__User[jsondata['actor']['login']].get(jsondata['type'], 0) + 1
-        if not self.__Repo.get(jsondata['repo']['name'], 0):
-            self.__Repo.update({jsondata['repo']['name']: {}})
-        self.__Repo[jsondata['repo']['name']][jsondata['type']
-        ] = self.__Repo[jsondata['repo']['name']].get(jsondata['type'], 0) + 1
-        if not self.__UserAndRepo[jsondata['actor']['login']].get(jsondata['repo']['name'], 0):
-            self.__UserAndRepo[jsondata['actor']['login']].update({jsondata['repo']['name']: {}})
-        self.__UserAndRepo[jsondata['actor']['login']][jsondata['repo']['name']][jsondata['type']
-        ] = self.__UserAndRepo[jsondata['actor']['login']][jsondata['repo']['name']].get(jsondata['type'], 0) + 1
+        #emptyevent = {'PushEvent': 0, 'IssueCommentEvent': 0, 'IssuesEvent': 0,'PullRequestEvent': 0}
+        if not jsondata["actor"]["login"] in self.__User.keys():
+            self.__User[jsondata["actor"]["login"]] = {'PushEvent': 0, 'IssueCommentEvent': 0, 'IssuesEvent': 0,
+                      'PullRequestEvent': 0}
+        if not jsondata["repo"]["name"] in self.__Repo.keys():
+            self.__Repo[jsondata["repo"]["name"]] = {'PushEvent': 0, 'IssueCommentEvent': 0, 'IssuesEvent': 0,
+                      'PullRequestEvent': 0}
+
+        if not jsondata["actor"]["login"] in self.__UserAndRepo.keys():
+            self.__UserAndRepo[jsondata["actor"]["login"]] = {}
+            self.__UserAndRepo[jsondata["actor"]["login"]][jsondata["repo"]["name"]] ={'PushEvent': 0, 'IssueCommentEvent': 0, 'IssuesEvent': 0,
+                      'PullRequestEvent': 0}
+        elif not jsondata["repo"]["name"] in self.__UserAndRepo[jsondata["actor"]["login"]].keys():
+            self.__UserAndRepo[jsondata["actor"]["login"]][jsondata["repo"]["name"]] = {'PushEvent': 0, 'IssueCommentEvent': 0, 'IssuesEvent': 0,
+                      'PullRequestEvent': 0}
+        self.__User[jsondata["actor"]["login"]][jsondata['type']] += 1
+        self.__Repo[jsondata["repo"]["name"]][jsondata['type']] += 1
+        self.__UserAndRepo[jsondata["actor"]["login"]][jsondata["repo"]["name"]][jsondata['type']] += 1
+
+
 
     def loadData(self) -> bool:
         #读取预制文件
@@ -133,7 +144,7 @@ class GHAnalysis:
                             self.parser.parse_args().user, self.parser.parse_args().event)
                 elif self.parser.parse_args().repo:
                     result = self.data.getEventsByRepos(
-                        self.parser.parse_args().reop, self.parser.parse_args().event)
+                        self.parser.parse_args().repo, self.parser.parse_args().event)
                 else:
                     raise RuntimeError('error: argument -u or -r is required')
             else:
